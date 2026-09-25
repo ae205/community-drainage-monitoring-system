@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manage Reports — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container wide">
+  <div class="card">
+    <h1>Manage Reports</h1>
+    <p class="subtitle">Filter, search, and triage all community drainage reports.</p>
+    <div class="filters">
+      <select id="filterStatus">
+        <option value="">All Statuses</option>
+        <option value="submitted">Submitted</option>
+        <option value="acknowledged">Acknowledged</option>
+        <option value="in_progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <select id="filterCategory">
+        <option value="">All Categories</option>
+        <option value="blocked">Blocked Drain</option>
+        <option value="collapsed">Collapsed / Damaged</option>
+        <option value="overflow">Overflow</option>
+        <option value="illegal_dumping">Illegal Dumping</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div id="list"><p class="empty-state">Loading...</p></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+requireAuth('admin');
+renderNav('manage');
+
+async function loadReports() {
+  const status = document.getElementById('filterStatus').value;
+  const category = document.getElementById('filterCategory').value;
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  if (category) qs.set('category', category);
+
+  const list = document.getElementById('list');
+  list.innerHTML = '<p class="empty-state">Loading...</p>';
+  try {
+    const reports = await api('/api/reports?' + qs.toString());
+    if (reports.length === 0) {
+      list.innerHTML = '<p class="empty-state">No reports match these filters.</p>';
+      return;
+    }
+    list.innerHTML = `<table>
+      <thead><tr><th>ID</th><th>Reporter</th><th>Category</th><th>Severity</th><th>Status</th><th>Location</th><th>Submitted</th><th></th></tr></thead>
+      <tbody>
+        ${reports.map(r => `
+          <tr>
+            <td>#${r.report_id}</td>
+            <td>${r.reporter_name}</td>
+            <td>${categoryLabel(r.category)}</td>
+            <td class="severity-${r.severity}">${r.severity}</td>
+            <td><span class="status-pill status-${r.status}">${statusLabel(r.status)}</span></td>
+            <td style="font-size:12px;">${r.landmark || (r.latitude + ', ' + r.longitude)}</td>
+            <td>${timeAgo(r.created_at)}</td>
+            <td><a href="report_triage.html?id=${r.report_id}">Triage →</a></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch (err) {
+    list.innerHTML = `<p class="error-box" style="display:block;">${err.message}</p>`;
+  }
+}
+
+document.getElementById('filterStatus').addEventListener('change', loadReports);
+document.getElementById('filterCategory').addEventListener('change', loadReports);
+loadReports();
+</script>
+</body>
+</html>

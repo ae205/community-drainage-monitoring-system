@@ -1,0 +1,13 @@
+{
+  "name": "Community Drainage Monitoring and Reporting System",
+  "short_name": "Drainage Watch",
+  "description": "Report and track community drainage issues, online or offline.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#2563eb",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

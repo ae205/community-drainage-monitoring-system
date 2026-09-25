@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Profile — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container" style="max-width:440px;">
+  <div class="card">
+    <h1>My Profile</h1>
+    <div id="info"></div>
+    <button class="secondary" onclick="logout()" style="width:100%;">Log Out</button>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+const auth = requireAuth();
+renderNav('profile');
+document.getElementById('info').innerHTML = `
+  <label>Full Name</label><input value="${auth.user.full_name}" disabled>
+  <label>Role</label><input value="${auth.user.role}" disabled>
+  <p style="font-size:12px; color:#9ca3af; margin-top:14px;">Profile editing is a planned extension; this demo focuses on the core reporting workflow.</p>
+`;
+</script>
+</body>
+</html>

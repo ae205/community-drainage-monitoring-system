@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container wide">
+  <div class="card">
+    <h1>Environmental Officer Dashboard</h1>
+    <p class="subtitle">All community drainage reports at a glance.</p>
+  </div>
+  <div class="grid-3" id="statBoxes">
+    <div class="stat-box"><div class="num" id="statTotal">–</div><div class="label">Total Reports</div></div>
+    <div class="stat-box"><div class="num" id="statPending">–</div><div class="label">Awaiting Action</div></div>
+    <div class="stat-box"><div class="num" id="statResolved">–</div><div class="label">Resolved</div></div>
+  </div>
+  <div class="card">
+    <h2>Report Map</h2>
+    <p style="font-size:12px; color:#6b7280;">🔴 Submitted/Acknowledged &nbsp; 🟡 In Progress &nbsp; 🟢 Resolved &nbsp; ⚪ Rejected</p>
+    <div id="mapView"></div>
+  </div>
+  <div class="card">
+    <h2>Most Recent Reports</h2>
+    <div id="recentList"><p class="empty-state">Loading...</p></div>
+    <a href="manage_reports.html" class="btn secondary">View All Reports →</a>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="locationpicker.js"></script>
+<script>
+requireAuth('admin');
+renderNav('dashboard');
+
+const statusColors = { submitted: '#dc2626', acknowledged: '#dc2626', in_progress: '#d97706', resolved: '#16a34a', rejected: '#9ca3af' };
+
+api('/api/reports').then(reports => {
+  document.getElementById('statTotal').textContent = reports.length;
+  document.getElementById('statPending').textContent = reports.filter(r => ['submitted','acknowledged','in_progress'].includes(r.status)).length;
+  document.getElementById('statResolved').textContent = reports.filter(r => r.status === 'resolved').length;
+
+  const map = createLocationPicker('mapView', { height: 320, readOnly: true });
+  map.setPoints(reports.map(r => ({ lat: r.latitude, lng: r.longitude, color: statusColors[r.status] })));
+
+  const list = document.getElementById('recentList');
+  if (reports.length === 0) {
+    list.innerHTML = '<p class="empty-state">No reports submitted yet.</p>';
+    return;
+  }
+  list.innerHTML = reports.slice(0, 5).map(r => `
+    <div style="padding:12px 0; border-bottom:1px solid #e5e7eb;">
+      <strong>#${r.report_id} — ${categoryLabel(r.category)}</strong> by ${r.reporter_name}
+      <span class="status-pill status-${r.status}" style="margin-left:8px;">${statusLabel(r.status)}</span>
+      <div style="font-size:11px; color:#9ca3af; margin-top:4px;">${timeAgo(r.created_at)} · <a href="report_triage.html?id=${r.report_id}">Triage →</a></div>
+    </div>`).join('');
+}).catch(err => {
+  document.getElementById('recentList').innerHTML = `<p class="error-box" style="display:block;">${err.message}</p>`;
+});
+</script>
+</body>
+</html>

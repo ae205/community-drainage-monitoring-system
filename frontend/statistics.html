@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Statistics — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h1>Statistics &amp; Analytics</h1>
+    <p class="subtitle">Aggregate data across all submitted reports.</p>
+  </div>
+  <div class="grid-3">
+    <div class="stat-box"><div class="num" id="statTotal">–</div><div class="label">Total Reports</div></div>
+    <div class="stat-box"><div class="num" id="statAvgDays">–</div><div class="label">Avg. Days to Resolve</div></div>
+    <div class="stat-box"><div class="num" id="statWards">–</div><div class="label">Wards Reporting</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>Reports by Category</h2>
+      <div id="byCategory"></div>
+    </div>
+    <div class="card">
+      <h2>Reports by Status</h2>
+      <div id="byStatus"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Reports by Ward / Community</h2>
+    <div id="byWard"></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+requireAuth('admin');
+renderNav('stats');
+
+function bar(label, count, max, color) {
+  const pct = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 0;
+  return `
+    <div style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+        <span>${label}</span><strong>${count}</strong>
+      </div>
+      <div style="background:#e5e7eb; border-radius:6px; height:10px;">
+        <div style="background:${color}; width:${pct}%; height:100%; border-radius:6px;"></div>
+      </div>
+    </div>`;
+}
+
+api('/api/statistics').then(stats => {
+  document.getElementById('statTotal').textContent = stats.total_reports;
+  document.getElementById('statAvgDays').textContent = stats.avg_resolution_days !== null ? stats.avg_resolution_days : '—';
+  document.getElementById('statWards').textContent = stats.by_ward.length;
+
+  const catMax = Math.max(...stats.by_category.map(c => c.count), 1);
+  document.getElementById('byCategory').innerHTML = stats.by_category.length
+    ? stats.by_category.map(c => bar(categoryLabel(c.category), c.count, catMax, '#2563eb')).join('')
+    : '<p class="empty-state">No data yet.</p>';
+
+  const statusColors = { submitted:'#3730a3', acknowledged:'#92400e', in_progress:'#1e40af', resolved:'#065f46', rejected:'#991b1b' };
+  const statMax = Math.max(...stats.by_status.map(c => c.count), 1);
+  document.getElementById('byStatus').innerHTML = stats.by_status.length
+    ? stats.by_status.map(c => bar(statusLabel(c.status), c.count, statMax, statusColors[c.status] || '#6b7280')).join('')
+    : '<p class="empty-state">No data yet.</p>';
+
+  const wardMax = Math.max(...stats.by_ward.map(c => c.count), 1);
+  document.getElementById('byWard').innerHTML = stats.by_ward.length
+    ? stats.by_ward.map(c => bar(c.community_ward, c.count, wardMax, '#16a34a')).join('')
+    : '<p class="empty-state">No ward data yet — residents can optionally include a ward/community when reporting.</p>';
+}).catch(err => {
+  document.querySelector('.container').innerHTML += `<p class="error-box" style="display:block;">${err.message}</p>`;
+});
+</script>
+</body>
+</html>
