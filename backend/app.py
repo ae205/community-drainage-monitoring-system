@@ -54,6 +54,7 @@ if not os.path.exists(DB_PATH):
     init_db(reset=True)
 
 
+<<<<<<< HEAD
 def ensure_admin():
     conn = get_db()
 
@@ -86,6 +87,8 @@ def ensure_admin():
 
 ensure_admin()
 
+=======
+>>>>>>> 300d9f2ba88c2ef861cdab369966f06738cde1ce
 # ---------------------------------------------------------------- helpers
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
