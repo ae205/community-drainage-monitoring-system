@@ -5,6 +5,7 @@ Users, Locations, Reports, Images, Status_History, Notifications.
 """
 import sqlite3
 import os
+from werkzeug.security import generate_password_hash
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
 
@@ -82,8 +83,33 @@ def get_db():
 def init_db(reset=False):
     if reset and os.path.exists(DB_PATH):
         os.remove(DB_PATH)
+
     conn = get_db()
     conn.executescript(SCHEMA)
+
+    admin = conn.execute(
+        "SELECT user_id FROM Users WHERE email = ?",
+        ("admin@drainage.local",)
+    ).fetchone()
+
+    if not admin:
+        password_hash = generate_password_hash("admin123")
+
+        conn.execute(
+            """
+            INSERT INTO Users
+            (full_name, email, phone, password_hash, role)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "Admin Officer",
+                "admin@drainage.local",
+                "08000000000",
+                password_hash,
+                "admin"
+            )
+        )
+
     conn.commit()
     conn.close()
     print(f"Database initialised at {DB_PATH}")
