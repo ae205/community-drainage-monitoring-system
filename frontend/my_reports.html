@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My Reports — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h1>My Reports</h1>
+    <p class="subtitle">Track the status of every drainage issue you've reported.</p>
+    <div id="list"><p class="empty-state">Loading...</p></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+requireAuth('resident');
+renderNav('myreports');
+
+async function load() {
+  const [reports, pending] = await Promise.all([
+    api('/api/reports/mine').catch(() => []),
+    getAllPending().catch(() => []),
+  ]);
+
+  const list = document.getElementById('list');
+  if (reports.length === 0 && pending.length === 0) {
+    list.innerHTML = '<p class="empty-state">No reports yet. <a href="report_form.html">Report your first issue</a>.</p>';
+    return;
+  }
+
+  const pendingRows = pending.map(p => `
+    <tr>
+      <td>—</td>
+      <td>${categoryLabel(p.category)}</td>
+      <td class="severity-${p.severity}">${p.severity}</td>
+      <td><span class="status-pill status-pending_sync">📴 Waiting to Sync</span></td>
+      <td>${timeAgo(p.queued_at)}</td>
+      <td style="color:#9ca3af;">Saved on this device</td>
+    </tr>`).join('');
+
+  const serverRows = reports.map(r => `
+    <tr>
+      <td>#${r.report_id}</td>
+      <td>${categoryLabel(r.category)}</td>
+      <td class="severity-${r.severity}">${r.severity}</td>
+      <td><span class="status-pill status-${r.status}">${statusLabel(r.status)}</span></td>
+      <td>${timeAgo(r.created_at)}</td>
+      <td><a href="report_detail.html?id=${r.report_id}">View →</a></td>
+    </tr>`).join('');
+
+  list.innerHTML = `<table>
+    <thead><tr><th>ID</th><th>Category</th><th>Severity</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>${pendingRows}${serverRows}</tbody>
+  </table>`;
+}
+
+load();
+window.addEventListener("offline-sync-complete", load);
+</script>
+</body>
+</html>

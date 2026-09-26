@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Report Detail — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="success-box" id="submittedMsg" style="display:none;">✅ Your report was submitted successfully. You'll be notified as its status changes.</div>
+  <div class="card" id="reportCard"><p class="empty-state">Loading...</p></div>
+  <div class="card" id="historyCard" style="display:none;">
+    <h2>Status History</h2>
+    <div id="historyList"></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+const auth = requireAuth();
+renderNav(auth.user.role === 'admin' ? 'manage' : 'myreports');
+
+const params = new URLSearchParams(window.location.search);
+const reportId = params.get('id');
+if (params.get('submitted') === '1') document.getElementById('submittedMsg').style.display = 'block';
+
+api(`/api/reports/${reportId}`).then(r => {
+  document.getElementById('reportCard').innerHTML = `
+    <h1>Report #${r.report_id} <span class="status-pill status-${r.status}">${statusLabel(r.status)}</span></h1>
+    <p class="subtitle">${categoryLabel(r.category)} · Severity: <span class="severity-${r.severity}">${r.severity}</span></p>
+    <p>${r.description}</p>
+    <p style="font-size:13px; color:#6b7280;">
+      📍 ${r.latitude}, ${r.longitude} ${r.landmark ? '— ' + r.landmark : ''} ${r.community_ward ? '(' + r.community_ward + ')' : ''}<br>
+      Reported by ${r.reporter_name} · ${timeAgo(r.created_at)}
+    </p>
+    <div>${r.images.map(img => `<img class="thumb" src="/uploads/${img.file_path}" style="width:160px; height:120px;">`).join('')}</div>
+  `;
+
+  const hist = document.getElementById('historyList');
+  hist.innerHTML = r.history.map(h => `
+    <div style="padding:10px 0; border-bottom:1px solid #e5e7eb;">
+      <span class="status-pill status-${h.new_status}">${statusLabel(h.new_status)}</span>
+      <span style="font-size:12px; color:#9ca3af; margin-left:8px;">${timeAgo(h.changed_at)} by ${h.changed_by_name}</span>
+      ${h.note ? `<div style="font-size:13px; margin-top:4px; color:#374151;">"${h.note}"</div>` : ''}
+    </div>`).join('');
+  document.getElementById('historyCard').style.display = 'block';
+}).catch(err => {
+  document.getElementById('reportCard').innerHTML = `<p class="error-box" style="display:block;">${err.message}</p>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h1 id="greeting">Welcome</h1>
+    <p class="subtitle">Here's a summary of your drainage reports.</p>
+  </div>
+  <div class="grid-3" id="statBoxes">
+    <div class="stat-box"><div class="num" id="statTotal">–</div><div class="label">Total Reports</div></div>
+    <div class="stat-box"><div class="num" id="statOpen">–</div><div class="label">Still Open</div></div>
+    <div class="stat-box"><div class="num" id="statResolved">–</div><div class="label">Resolved</div></div>
+  </div>
+  <div class="card">
+    <h2>Quick Actions</h2>
+    <a href="report_form.html" class="btn">📍 Report a Drainage Issue</a>
+    <a href="my_reports.html" class="btn secondary">View My Reports</a>
+  </div>
+  <div class="card">
+    <h2>Recent Reports</h2>
+    <div id="recentList"><p class="empty-state">Loading...</p></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+const auth = requireAuth('resident');
+renderNav('dashboard');
+document.getElementById('greeting').textContent = `Welcome, ${auth.user.full_name.split(' ')[0]}`;
+
+async function load() {
+  const [reports, pending] = await Promise.all([
+    api('/api/reports/mine').catch(() => []),
+    getAllPending().catch(() => []),
+  ]);
+
+  const pendingAsReports = pending.map(p => ({
+    report_id: null, category: p.category, description: p.description,
+    status: 'pending_sync', created_at: p.queued_at, isPending: true,
+  }));
+  const combined = [...pendingAsReports, ...reports];
+
+  document.getElementById('statTotal').textContent = combined.length;
+  document.getElementById('statOpen').textContent = combined.filter(r => !['resolved','rejected'].includes(r.status)).length;
+  document.getElementById('statResolved').textContent = reports.filter(r => r.status === 'resolved').length;
+
+  const list = document.getElementById('recentList');
+  if (combined.length === 0) {
+    list.innerHTML = '<p class="empty-state">You haven\'t submitted any reports yet.</p>';
+    return;
+  }
+  list.innerHTML = combined.slice(0, 5).map(r => `
+    <div style="padding:12px 0; border-bottom:1px solid #e5e7eb;">
+      <strong>${r.isPending ? 'Pending' : '#' + r.report_id} — ${categoryLabel(r.category)}</strong>
+      <span class="status-pill status-${r.status}" style="margin-left:8px;">${r.isPending ? '📴 Waiting to Sync' : statusLabel(r.status)}</span>
+      <div style="font-size:13px; color:#6b7280; margin-top:4px;">${r.description.slice(0,90)}${r.description.length>90?'...':''}</div>
+      <div style="font-size:11px; color:#9ca3af; margin-top:4px;">${timeAgo(r.created_at)}</div>
+    </div>`).join('');
+}
+
+load();
+window.addEventListener("offline-sync-complete", load);
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Report an Issue — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h1>Report a Drainage Issue</h1>
+    <p class="subtitle">Fill in the details below. A photo and location pin are required. You can submit this even without an internet connection — it will be saved and sent automatically once you're back online.</p>
+    <form id="reportForm">
+      <label>Category</label>
+      <select id="category" required>
+        <option value="">Select category...</option>
+        <option value="blocked">Blocked Drain</option>
+        <option value="collapsed">Collapsed / Damaged Drain</option>
+        <option value="overflow">Overflow</option>
+        <option value="illegal_dumping">Illegal Dumping in Drain</option>
+        <option value="other">Other</option>
+      </select>
+
+      <label>Severity</label>
+      <select id="severity" required>
+        <option value="">Select severity...</option>
+        <option value="low">Low — minor issue</option>
+        <option value="medium">Medium — needs attention soon</option>
+        <option value="high">High — urgent / flooding risk</option>
+      </select>
+
+      <label>Description</label>
+      <textarea id="description" required placeholder="Describe the problem, e.g. how long it has been blocked, whether it's causing flooding..."></textarea>
+
+      <label>Landmark (optional)</label>
+      <input type="text" id="landmark" placeholder="e.g. near DELSU main gate">
+
+      <label>Ward / Community (optional)</label>
+      <input type="text" id="ward" placeholder="e.g. Abraka Ward 2">
+
+      <label>Pin the Location (click the map)</label>
+      <div id="mapPicker"></div>
+
+      <label>Photo Evidence (at least one)</label>
+      <input type="file" id="photos" accept="image/*" multiple required>
+
+      <button type="submit" style="width:100%;" id="submitBtn">Submit Report</button>
+      <div class="error-box" id="err"></div>
+      <div class="success-box" id="offlineSaved">📴 You're offline — this report has been saved on your device and will be submitted automatically once you're back online.</div>
+    </form>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="locationpicker.js"></script>
+<script>
+requireAuth('resident');
+renderNav('report');
+
+const picker = createLocationPicker('mapPicker', { height: 300, useGeolocation: true });
+
+document.getElementById('reportForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError('err');
+  document.getElementById('offlineSaved').style.display = 'none';
+
+  const loc = picker.getSelected();
+  if (!loc) { showError('err', 'Please click the map to pin the location of the drainage problem.'); return; }
+
+  const files = Array.from(document.getElementById('photos').files);
+  if (files.length === 0) { showError('err', 'Please attach at least one photo.'); return; }
+
+  const reportData = {
+    category: document.getElementById('category').value,
+    severity: document.getElementById('severity').value,
+    description: document.getElementById('description').value,
+    landmark: document.getElementById('landmark').value,
+    community_ward: document.getElementById('ward').value,
+    latitude: loc.lat,
+    longitude: loc.lng,
+  };
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
+
+  const auth = getAuth();
+
+  if (!navigator.onLine) {
+    await addPendingReport({ ...reportData, photos: files });
+    document.getElementById('offlineSaved').style.display = 'block';
+    document.getElementById('reportForm').reset();
+    updateOfflineIndicator();
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Report';
+    return;
+  }
+
+  try {
+    const fd = new FormData();
+    Object.entries(reportData).forEach(([k, v]) => fd.append(k, v));
+    for (const f of files) fd.append('photos', f);
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + auth.token },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Submission failed');
+    window.location.href = `report_detail.html?id=${data.report_id}&submitted=1`;
+  } catch (err) {
+    await addPendingReport({ ...reportData, photos: files });
+    document.getElementById('offlineSaved').style.display = 'block';
+    document.getElementById('reportForm').reset();
+    updateOfflineIndicator();
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Report';
+  }
+});
+</script>
+</body>
+</html>

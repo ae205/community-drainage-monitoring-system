@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Notifications — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h1>Notifications</h1>
+    <p class="subtitle">Updates on your reports appear here.</p>
+    <div id="list"><p class="empty-state">Loading...</p></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+requireAuth();
+renderNav('notifications');
+
+api('/api/notifications').then(items => {
+  const list = document.getElementById('list');
+  if (items.length === 0) {
+    list.innerHTML = '<p class="empty-state">No notifications yet.</p>';
+    return;
+  }
+  list.innerHTML = items.map(n => `
+    <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
+      ${n.message}
+      <span class="time">${timeAgo(n.created_at)}</span>
+    </div>`).join('');
+
+  list.querySelectorAll('.notif-item.unread').forEach(el => {
+    el.addEventListener('click', async () => {
+      await api(`/api/notifications/${el.dataset.id}/read`, { method: 'PATCH' });
+      el.classList.remove('unread');
+    });
+  });
+}).catch(err => {
+  document.getElementById('list').innerHTML = `<p class="error-box" style="display:block;">${err.message}</p>`;
+});
+</script>
+</body>
+</html>

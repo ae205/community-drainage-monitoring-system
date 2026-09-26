@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Report Triage — Drainage Watch</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="navbar" id="navbar"></div>
+<div class="container">
+  <div class="success-box" id="okMsg" style="display:none;"></div>
+  <div class="card" id="reportCard"><p class="empty-state">Loading...</p></div>
+  <div class="card" id="actionCard" style="display:none;">
+    <h2>Update Status</h2>
+    <div id="actionButtons"></div>
+    <label>Note (optional, required for rejection)</label>
+    <textarea id="note" placeholder="e.g. Team dispatched, expected completion Friday"></textarea>
+    <div class="error-box" id="err"></div>
+  </div>
+  <div class="card" id="historyCard" style="display:none;">
+    <h2>Status History</h2>
+    <div id="historyList"></div>
+  </div>
+</div>
+<script src="idb.js"></script>
+<script src="app.js"></script>
+<script>
+requireAuth('admin');
+renderNav('manage');
+
+const params = new URLSearchParams(window.location.search);
+const reportId = params.get('id');
+
+const NEXT_STATUS = {
+  submitted: [['acknowledged','Acknowledge'], ['rejected','Reject']],
+  acknowledged: [['in_progress','Mark In Progress'], ['rejected','Reject']],
+  in_progress: [['resolved','Mark Resolved'], ['rejected','Reject']],
+  resolved: [], rejected: [],
+};
+
+async function load() {
+  const r = await api(`/api/reports/${reportId}`);
+  document.getElementById('reportCard').innerHTML = `
+    <h1>Report #${r.report_id} <span class="status-pill status-${r.status}">${statusLabel(r.status)}</span></h1>
+    <p class="subtitle">${categoryLabel(r.category)} · Severity: <span class="severity-${r.severity}">${r.severity}</span> · Reported by ${r.reporter_name}</p>
+    <p>${r.description}</p>
+    <p style="font-size:13px; color:#6b7280;">📍 ${r.latitude}, ${r.longitude} ${r.landmark ? '— ' + r.landmark : ''} ${r.community_ward ? '(' + r.community_ward + ')' : ''}</p>
+    <div>${r.images.map(img => `<img class="thumb" src="/uploads/${img.file_path}" style="width:200px; height:150px;">`).join('')}</div>
+  `;
+
+  const hist = document.getElementById('historyList');
+  hist.innerHTML = r.history.map(h => `
+    <div style="padding:10px 0; border-bottom:1px solid #e5e7eb;">
+      <span class="status-pill status-${h.new_status}">${statusLabel(h.new_status)}</span>
+      <span style="font-size:12px; color:#9ca3af; margin-left:8px;">${timeAgo(h.changed_at)} by ${h.changed_by_name}</span>
+      ${h.note ? `<div style="font-size:13px; margin-top:4px; color:#374151;">"${h.note}"</div>` : ''}
+    </div>`).join('');
+  document.getElementById('historyCard').style.display = 'block';
+
+  const actions = NEXT_STATUS[r.status] || [];
+  if (actions.length > 0) {
+    document.getElementById('actionCard').style.display = 'block';
+    document.getElementById('actionButtons').innerHTML = actions.map(([status, label]) =>
+      `<button class="${status === 'rejected' ? 'danger' : ''}" onclick="updateStatus('${status}')">${label}</button>`
+    ).join(' ');
+  }
+}
+
+async function updateStatus(status) {
+  hideError('err');
+  const note = document.getElementById('note').value;
+  if (status === 'rejected' && !note.trim()) {
+    showError('err', 'Please provide a reason for rejecting this report.');
+    return;
+  }
+  try {
+    await api(`/api/reports/${reportId}/status`, { method: 'PATCH', json: { status, note } });
+    document.getElementById('okMsg').textContent = `Status updated to "${statusLabel(status)}". Resident has been notified.`;
+    document.getElementById('okMsg').style.display = 'block';
+    load();
+  } catch (err) {
+    showError('err', err.message);
+  }
+}
+
+load().catch(err => {
+  document.getElementById('reportCard').innerHTML = `<p class="error-box" style="display:block;">${err.message}</p>`;
+});
+</script>
+</body>
+</html>
